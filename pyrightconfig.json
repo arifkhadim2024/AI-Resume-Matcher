@@ -1,0 +1,14 @@
+{
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__",
+    ".git"
+  ],
+  "executionEnvironments": [
+    {
+      "root": "."
+    }
+  ]
+}
