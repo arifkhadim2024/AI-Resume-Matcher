@@ -14,7 +14,7 @@ An end-to-end Machine Learning and Natural Language Processing (NLP) system that
 
 ## 🏗️ System Architecture & Workflow
 
-```
+```text
 Candidate Resume (PDF / DOCX)               Target Job Description
             │                                         │
             ▼                                         ▼
@@ -52,7 +52,7 @@ Candidate Resume (PDF / DOCX)               Target Job Description
 
 ## 📂 Project Directory Structure
 
-```
+```text
 AI_Resume_Matcher/
 │
 ├── AI_Resume_Graph_Prediction.ipynb # Jupyter Notebook (Graph Analytics & ML Prediction)
@@ -82,7 +82,8 @@ The dataset is stored in `data/resume_jd_dataset.csv` and contains paired resume
 | `job_description` | String | Target job description containing requirements and stack. |
 | `match_score` | Float / Int | Ground truth compatibility score ranging from `0` to `100`. |
 
-### Job Roles Covered:
+### Job Roles Covered
+
 1. **Data Scientist**
 2. **Machine Learning Engineer**
 3. **Python Developer**
@@ -91,7 +92,8 @@ The dataset is stored in `data/resume_jd_dataset.csv` and contains paired resume
 6. **Data Analyst**
 7. **AI / GenAI Engineer**
 
-### Score Distribution:
+### Score Distribution
+
 - **High Match (80 - 100%)**: Strong alignment in core technologies, domain experience, and tools.
 - **Medium Match (50 - 79%)**: Partial overlap, adjacent tech stacks, or transferable technical skills.
 - **Low Match (0 - 49%)**: Mismatched technical domains or missing prerequisite tools.
@@ -103,17 +105,21 @@ The dataset is stored in `data/resume_jd_dataset.csv` and contains paired resume
 ## 🧠 Machine Learning & NLP Methodology
 
 ### 1. TF-IDF (Term Frequency - Inverse Document Frequency)
+
 Text documents are mapped into high-dimensional vector spaces using TF-IDF representation:
 
 $$\text{TF-IDF}(t, d, D) = \text{TF}(t, d) \times \log\left(\frac{1 + |D|}{1 + |\{d \in D : t \in d\}|}\right) + 1$$
 
 ### 2. Cosine Similarity
+
 Measures the directional alignment between the resume vector $\mathbf{u}$ and job description vector $\mathbf{v}$:
 
 $$\text{Cosine Similarity}(\mathbf{u}, \mathbf{v}) = \frac{\mathbf{u} \cdot \mathbf{v}}{\|\mathbf{u}\| \|\mathbf{v}\|}$$
 
 ### 3. Feature Engineering & Regression
+
 The regression model ingests composite features:
+
 - **TF-IDF Cosine Similarity** (Anchor feature: 0 to 1)
 - **Jaccard Token Overlap Ratio** ($\frac{|A \cap B|}{|A \cup B|}$)
 - **Job Description Keyword Coverage**
@@ -140,29 +146,35 @@ Evaluated on an 80/20 train-test split:
 ## 🚀 Quickstart & Installation Guide
 
 ### Step 1: Clone the Repository
+
 ```bash
 git clone https://github.com/arifkhadim2024/AI-Resume-Matcher.git
 cd AI_Resume_Matcher
 ```
 
 ### Step 2: Set Up Virtual Environment (Recommended)
+
 ```bash
 python3 -m venv venv
 source venv/bin/activate   # On Windows: venv\Scripts\activate
 ```
 
 ### Step 3: Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### Step 4: Train the Machine Learning Model
+
 Generate the model artifacts (`regression_model.pkl` and `tfidf_vectorizer.pkl`):
+
 ```bash
 python train_model.py
 ```
 
 ### Step 5: Launch the Streamlit Web Application
+
 ```bash
 streamlit run app.py
 ```
@@ -170,7 +182,9 @@ streamlit run app.py
 Open your browser and navigate to `http://localhost:8501`.
 
 ### Step 6: Run the Graph Prediction & Analytics Notebook (Optional)
+
 Launch Jupyter to explore interactive model training, residual plots, and bipartite knowledge graphs:
+
 ```bash
 jupyter notebook AI_Resume_Graph_Prediction.ipynb
 ```
@@ -199,6 +213,7 @@ jupyter notebook AI_Resume_Graph_Prediction.ipynb
 ## 📓 Jupyter Notebook & Graph Prediction Features
 
 The notebook [`AI_Resume_Graph_Prediction.ipynb`](AI_Resume_Graph_Prediction.ipynb) includes:
+
 1. **Interactive Exploratory Data Analysis**: Word count distributions, score histograms, and correlation heatmaps.
 2. **Comparative Model Training**: Benchmarks `RandomForestRegressor`, `GradientBoostingRegressor`, and `RidgeRegression`.
 3. **Predictive Diagnostic Graphs**:
@@ -234,4 +249,5 @@ git push
 ---
 
 ## 📜 License
+
 This project is open-source and available under the [MIT License](LICENSE).

@@ -8,16 +8,16 @@ and predicts an intelligent match score using a trained Random Forest Regression
 
 import os
 import re
+
 import joblib
+import matplotlib.pyplot as plt
+import networkx as nx
 import numpy as np
-import pandas as pd
-import streamlit as st
 import PyPDF2
+import streamlit as st
 from docx import Document
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-import matplotlib.pyplot as plt
-import networkx as nx
 
 # Configure Matplotlib styling for high-definition UI rendering
 plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
@@ -234,8 +234,11 @@ def load_ml_assets():
             model = joblib.load(MODEL_PATH)
             vectorizer = joblib.load(VECTORIZER_PATH)
             return model, vectorizer, True
-        except Exception as e:
+        except (OSError, ValueError, KeyError, RuntimeError) as e:
             st.warning(f"Error loading model files: {e}")
+            return None, None, False
+        except Exception as e:  # noqa: BLE001
+            st.warning(f"Unexpected error loading model files: {e}")
             return None, None, False
     return None, None, False
 
@@ -253,8 +256,11 @@ def extract_pdf_text(uploaded_file) -> str:
             if extracted:
                 text += extracted + "\n"
         return text
-    except Exception as e:
+    except (OSError, ValueError, PyPDF2.errors.PyPdfError) as e:
         st.error(f"Error reading PDF file: {e}")
+        return ""
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Unexpected error reading PDF file: {e}")
         return ""
 
 
@@ -266,8 +272,11 @@ def extract_docx_text(uploaded_file) -> str:
         for paragraph in document.paragraphs:
             text += paragraph.text + "\n"
         return text
-    except Exception as e:
+    except (OSError, ValueError, KeyError) as e:
         st.error(f"Error reading DOCX file: {e}")
+        return ""
+    except Exception as e:  # noqa: BLE001
+        st.error(f"Unexpected error reading DOCX file: {e}")
         return ""
 
 
@@ -307,7 +316,7 @@ def extract_skills(text: str) -> list:
         if re.search(pattern, text_clean):
             found.append(skill)
             
-    return sorted(list(set(found)))
+    return sorted(set(found))
 
 
 def compute_features(resume_clean: str, jd_clean: str, vectorizer: TfidfVectorizer) -> tuple:
@@ -336,9 +345,9 @@ def compute_features(resume_clean: str, jd_clean: str, vectorizer: TfidfVectoriz
     # 5. Skill Extraction
     res_skills = extract_skills(resume_clean)
     jd_skills = extract_skills(jd_clean)
-    matched_skills = sorted(list(set(res_skills) & set(jd_skills)))
-    missing_skills = sorted(list(set(jd_skills) - set(res_skills)))
-    extra_skills = sorted(list(set(res_skills) - set(jd_skills)))
+    matched_skills = sorted(set(res_skills) & set(jd_skills))
+    missing_skills = sorted(set(jd_skills) - set(res_skills))
+    extra_skills = sorted(set(res_skills) - set(jd_skills))
     skill_ratio = len(matched_skills) / len(jd_skills) if len(jd_skills) > 0 else 0.0
     
     # 6. Length Ratio
@@ -410,11 +419,11 @@ def generate_network_graph(matched_skills: list, missing_skills: list, extra_ski
     
     # Column Header Annotations
     ax.text(0.02, 0.96, f"Candidate Extras ({len(extra_skills)})", ha='center', va='center', fontsize=9.5, fontweight='bold', color='#0284C7',
-            bbox=dict(boxstyle="round,pad=0.3", facecolor='#E0F2FE', edgecolor='#BAE6FD', alpha=0.95))
+            bbox={'boxstyle': "round,pad=0.3", 'facecolor': '#E0F2FE', 'edgecolor': '#BAE6FD', 'alpha': 0.95})
     ax.text(0.50, 0.96, f"✓ Matched Skills ({len(matched_skills)})", ha='center', va='center', fontsize=10, fontweight='bold', color='#059669',
-            bbox=dict(boxstyle="round,pad=0.3", facecolor='#D1FAE5', edgecolor='#A7F3D0', alpha=0.95))
+            bbox={'boxstyle': "round,pad=0.3", 'facecolor': '#D1FAE5', 'edgecolor': '#A7F3D0', 'alpha': 0.95})
     ax.text(0.98, 0.96, f"✗ Missing Skills ({len(missing_skills)})", ha='center', va='center', fontsize=9.5, fontweight='bold', color='#DC2626',
-            bbox=dict(boxstyle="round,pad=0.3", facecolor='#FEE2E2', edgecolor='#FECACA', alpha=0.95))
+            bbox={'boxstyle': "round,pad=0.3", 'facecolor': '#FEE2E2', 'edgecolor': '#FECACA', 'alpha': 0.95})
             
     node_colors = []
     node_sizes = []
@@ -466,7 +475,7 @@ def generate_network_graph(matched_skills: list, missing_skills: list, extra_ski
             ax.text(p[0], p[1], node, ha='center', va='center', color=font_c, fontsize=font_s, fontweight=font_w, zorder=3)
         else:
             ax.text(p[0], p[1], node, ha='center', va='center', color=font_c, fontsize=font_s, fontweight=font_w, zorder=3,
-                    bbox=dict(boxstyle="round,pad=0.22", facecolor='#FFFFFF', edgecolor=b, alpha=0.92, lw=1.2))
+                    bbox={'boxstyle': "round,pad=0.22", 'facecolor': '#FFFFFF', 'edgecolor': b, 'alpha': 0.92, 'lw': 1.2})
                     
     ax.set_xlim(-0.10, 1.10)
     ax.set_ylim(0.04, 1.06)
@@ -484,7 +493,7 @@ def generate_radar_chart(cos_score: float, skill_ratio: float, jd_cov: float, ja
     angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
     angles += angles[:1]
     
-    fig, ax = plt.subplots(figsize=(6.8, 5.5), subplot_kw=dict(polar=True), facecolor='none')
+    fig, ax = plt.subplots(figsize=(6.8, 5.5), subplot_kw={'polar': True}, facecolor='none')
     ax.set_facecolor('none')
     
     # Polygon plot
@@ -495,7 +504,7 @@ def generate_radar_chart(cos_score: float, skill_ratio: float, jd_cov: float, ja
     # Vertex Value Labels
     for ang, val in zip(angles[:-1], values[:-1]):
         ax.text(ang, min(val + 8, 105), f"{val:.1f}%", ha='center', va='center', fontsize=8.5, fontweight='bold', color='#1E40AF',
-                bbox=dict(boxstyle="round,pad=0.2", facecolor='#EFF6FF', edgecolor='#93C5FD', alpha=0.9, lw=0.8))
+                bbox={'boxstyle': "round,pad=0.2", 'facecolor': '#EFF6FF', 'edgecolor': '#93C5FD', 'alpha': 0.9, 'lw': 0.8})
                 
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(categories, fontweight='bold', size=9.5)
@@ -521,7 +530,7 @@ def generate_feature_bar_chart(cos_score: float, skill_ratio: float, jd_cov: flo
         width = bar.get_width()
         ax.text(width + 2.0, bar.get_y() + bar.get_height()/2, f"{width:.1f}%", 
                 va='center', ha='left', fontsize=9.5, fontweight='bold', color=col,
-                bbox=dict(boxstyle="round,pad=0.2", facecolor='#F8FAFC', edgecolor=col, alpha=0.9, lw=0.8))
+                bbox={'boxstyle': "round,pad=0.2", 'facecolor': '#F8FAFC', 'edgecolor': col, 'alpha': 0.9, 'lw': 0.8})
                 
     ax.set_xlim(0, 118)
     ax.set_xlabel("Alignment Score (%)", fontweight='bold')
@@ -722,9 +731,9 @@ if analyze_btn:
                 final_score = cos_score
                 res_skills = extract_skills(resume_clean)
                 jd_skills = extract_skills(jd_clean)
-                matched_skills = sorted(list(set(res_skills) & set(jd_skills)))
-                missing_skills = sorted(list(set(jd_skills) - set(res_skills)))
-                extra_skills = sorted(list(set(res_skills) - set(jd_skills)))
+                matched_skills = sorted(set(res_skills) & set(jd_skills))
+                missing_skills = sorted(set(jd_skills) - set(res_skills))
+                extra_skills = sorted(set(res_skills) - set(jd_skills))
                 skill_ratio = len(matched_skills) / len(jd_skills) if len(jd_skills) > 0 else 0.0
                 res_tokens = set(resume_clean.split())
                 jd_tokens = set(jd_clean.split())

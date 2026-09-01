@@ -17,14 +17,15 @@ Workflow:
 
 import os
 import re
+
 import joblib
-import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
+import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.model_selection import train_test_split
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
