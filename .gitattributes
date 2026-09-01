@@ -1,0 +1,7 @@
+# GitHub Linguist Language Configuration
+# Treats Jupyter Notebooks and dataset CSVs as documentation so that Python is shown as the primary repository language
+
+*.ipynb linguist-detectable=false
+*.ipynb linguist-documentation=true
+*.csv linguist-detectable=false
+*.csv linguist-documentation=true
