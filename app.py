@@ -37,70 +37,159 @@ st.set_page_config(
 # Custom CSS for modern, premium aesthetics
 st.markdown("""
 <style>
-    /* Global style tweaks */
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+    
+    /* Main Header Gradient */
     .main-header {
-        font-size: 2.3rem;
+        font-size: 2.35rem;
         font-weight: 800;
+        letter-spacing: -0.02em;
         background: linear-gradient(135deg, #2563EB 0%, #7C3AED 50%, #DB2777 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.35rem;
     }
+    
     .sub-header {
         font-size: 1.05rem;
         color: #64748B;
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.6rem;
+        line-height: 1.5;
     }
+    
+    /* Sidebar Card Styling */
+    .sidebar-brand {
+        background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.12));
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        border-radius: 14px;
+        padding: 16px 18px;
+        margin-bottom: 18px;
+        text-align: center;
+    }
+    
+    .sidebar-card {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(226, 232, 240, 0.15);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 14px;
+    }
+    
+    .status-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        border-radius: 9999px;
+        font-size: 0.85rem;
+        font-weight: 700;
+        background: rgba(16, 185, 129, 0.15);
+        color: #10B981;
+        border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+    
+    .pulse-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #10B981;
+        box-shadow: 0 0 8px #10B981;
+    }
+    
+    .meta-tag {
+        display: inline-block;
+        padding: 3px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        background: rgba(99, 102, 241, 0.1);
+        color: #6366F1;
+        border: 1px solid rgba(99, 102, 241, 0.25);
+        margin: 2px 3px;
+    }
+    
+    /* Input Container Panels */
+    .input-card {
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid rgba(226, 232, 240, 0.18);
+        border-radius: 14px;
+        padding: 18px 20px;
+        margin-bottom: 12px;
+    }
+    
+    .card-heading {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1E293B;
+        margin-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    /* Metric Scorecards */
     .metric-card {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(226, 232, 240, 0.2);
-        border-radius: 12px;
-        padding: 18px 20px;
+        border-radius: 14px;
+        padding: 20px 22px;
         text-align: center;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
         transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
+    
     .metric-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 20px -4px rgba(0, 0, 0, 0.08);
     }
+    
     .metric-val {
-        font-size: 2.2rem;
+        font-size: 2.4rem;
         font-weight: 800;
-        margin: 5px 0;
+        letter-spacing: -0.02em;
+        margin: 6px 0;
     }
+    
     .metric-title {
         font-size: 0.85rem;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
-        font-weight: 600;
+        letter-spacing: 0.06em;
+        font-weight: 700;
         color: #94A3B8;
     }
+    
+    /* Badges */
     .badge-chip {
         display: inline-block;
-        padding: 4px 12px;
+        padding: 5px 14px;
         border-radius: 9999px;
         font-size: 0.85rem;
         font-weight: 600;
-        margin: 3px 4px;
+        margin: 4px 5px;
     }
+    
     .badge-matched {
         background-color: rgba(16, 185, 129, 0.15);
         color: #10B981;
-        border: 1px solid rgba(16, 185, 129, 0.3);
+        border: 1px solid rgba(16, 185, 129, 0.35);
     }
+    
     .badge-missing {
         background-color: rgba(239, 68, 68, 0.15);
         color: #EF4444;
-        border: 1px solid rgba(239, 68, 68, 0.3);
+        border: 1px solid rgba(239, 68, 68, 0.35);
     }
-    .info-box {
-        background: rgba(59, 130, 246, 0.08);
-        border-left: 4px solid #3B82F6;
-        border-radius: 0 8px 8px 0;
-        padding: 14px 18px;
-        margin: 12px 0;
+    
+    .badge-extra {
+        background-color: rgba(14, 165, 233, 0.15);
+        color: #0EA5E9;
+        border: 1px solid rgba(14, 165, 233, 0.35);
     }
+    
     .workflow-step {
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(148, 163, 184, 0.15);
@@ -456,20 +545,41 @@ def fallback_calculate_match(resume_clean: str, jd_clean: str) -> float:
 model, vectorizer, is_model_loaded = load_ml_assets()
 
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135715.png", width=64)
-    st.markdown("### ⚙️ System Status")
+    st.markdown("""
+    <div class="sidebar-brand">
+        <div style="font-size: 2.3rem; margin-bottom: 4px;">🎯</div>
+        <div style="font-weight: 800; font-size: 1.2rem; color: #1E293B; letter-spacing: -0.02em;">AI Resume Matcher</div>
+        <div style="font-size: 0.75rem; font-weight: 700; color: #2563EB; text-transform: uppercase; letter-spacing: 0.08em;">v2.0 • Graph & ML Edition</div>
+    </div>
+    """, unsafe_allow_html=True)
     
+    # Status Card
     if is_model_loaded:
-        st.success("🟢 **ML Model Active**\nRandomForestRegressor + TF-IDF")
+        st.markdown("""
+        <div class="sidebar-card">
+            <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 6px; letter-spacing: 0.05em;">ML Engine Status</div>
+            <div class="status-pill"><span class="pulse-dot"></span> ML Regression Active</div>
+            <div style="font-size: 0.78rem; color: #64748B; margin-top: 6px; line-height: 1.4;">Random Forest Regressor + Sublinear TF-IDF Vectorizer loaded.</div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.warning("🟡 **Fallback Active**\nRun `train_model.py` to activate ML Regression.")
+        st.markdown("""
+        <div class="sidebar-card">
+            <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 6px;">ML Engine Status</div>
+            <div style="color: #F59E0B; font-weight: 700; font-size: 0.85rem;">🟡 Fallback Cosine Active</div>
+            <div style="font-size: 0.78rem; color: #64748B; margin-top: 4px;">Run `train_model.py` to activate ML regression.</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-    st.markdown("---")
-    st.markdown("### 🧪 Quick Demo Presets")
-    st.caption("Load sample profiles to quickly test the matching engine:")
+    st.markdown("""
+    <div class="sidebar-card">
+        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 6px; letter-spacing: 0.05em;">🧪 Quick Demo Presets</div>
+        <div style="font-size: 0.8rem; color: #64748B; margin-bottom: 8px;">Load pre-configured hiring scenarios instantly:</div>
+    </div>
+    """, unsafe_allow_html=True)
 
     sample_choice = st.selectbox(
-        "Select Demo Scenario:",
+        "Select Hiring Scenario:",
         [
             "None (Upload Custom)",
             "High Match: Senior Python Developer",
@@ -498,21 +608,25 @@ with st.sidebar:
         )
     }
 
-    st.markdown("---")
-    st.markdown("### 📚 Project Metadata")
     st.markdown("""
-    - **Architecture**: NLP + ML Regression
-    - **Vectorization**: TF-IDF (1-2 ngrams)
-    - **Similarity**: Cosine Similarity
-    - **Regression**: Random Forest
-    - **Target Metric**: Match Score (0-100%)
-    """)
+    <div class="sidebar-card">
+        <div style="font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: #64748B; margin-bottom: 8px; letter-spacing: 0.05em;">📚 System Taxonomy & Architecture</div>
+        <div>
+            <span class="meta-tag">⚡ 70+ Skills Taxonomy</span>
+            <span class="meta-tag">📐 6 ML Features</span>
+            <span class="meta-tag">🕸️ Bipartite Graphs</span>
+            <span class="meta-tag">🎯 Random Forest</span>
+            <span class="meta-tag">🧠 TF-IDF N-Grams</span>
+            <span class="meta-tag">📊 Radar Analytics</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # -----------------------------------------------------------------------------
 # 5. MAIN HEADER & USER INTERFACE
 # -----------------------------------------------------------------------------
 st.markdown('<div class="main-header">🎯 AI-Powered Resume vs Job Description Matcher</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-header">Analyze resume alignment, predict match percentage with Machine Learning, and uncover skill gaps with tailored recommendations.</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-header">Evaluate candidate-to-job compatibility using TF-IDF NLP vectorization, supervised machine learning regression, and interactive bipartite knowledge graphs.</div>', unsafe_allow_html=True)
 
 # Main Inputs layout
 col_input1, col_input2 = st.columns([1, 1], gap="large")
@@ -524,11 +638,13 @@ if sample_choice != "None (Upload Custom)" and sample_choice in sample_resumes:
     preset_resume, preset_jd = sample_resumes[sample_choice]
 
 with col_input1:
-    st.markdown("#### 📄 1. Upload or Provide Resume")
+    st.markdown("""
+    <div class="card-heading">📄 1. Candidate Resume (PDF / DOCX)</div>
+    """, unsafe_allow_html=True)
     uploaded_resume = st.file_uploader(
-        "Upload Resume (PDF or DOCX format)",
+        "Upload candidate resume file:",
         type=["pdf", "docx"],
-        help="Upload candidate resume in PDF or DOCX format."
+        help="Upload candidate resume in PDF or DOCX format for instant text extraction."
     )
     
     manual_resume_text = ""
@@ -540,9 +656,11 @@ with col_input1:
         )
 
 with col_input2:
-    st.markdown("#### 💼 2. Job Description")
+    st.markdown("""
+    <div class="card-heading">💼 2. Target Job Description</div>
+    """, unsafe_allow_html=True)
     job_description = st.text_area(
-        "Paste the Target Job Description here:",
+        "Paste the Job Description requirements here:",
         value=preset_jd if preset_jd else "",
         height=220,
         placeholder="Paste full job description including requirements, technical stack, and responsibilities..."
