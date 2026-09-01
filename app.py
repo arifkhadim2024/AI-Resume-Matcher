@@ -680,12 +680,111 @@ st.markdown("---")
 # -----------------------------------------------------------------------------
 # 6. ANALYSIS & PREDICTION PIPELINE
 # -----------------------------------------------------------------------------
+def run_match_analysis(raw_res_text: str, jd_text: str, is_loaded: bool, vec, mdl):
+    """Executes full NLP vectorization, feature extraction, and ML prediction."""
+    res_clean = clean_text(raw_res_text)
+    j_clean = clean_text(jd_text)
+    
+    if is_loaded and vec is not None and mdl is not None:
+        (
+            cos_score,
+            feat_vec,
+            matched_skills,
+            missing_skills,
+            extra_skills,
+            skill_ratio,
+            jd_cov,
+            jaccard,
+            len_ratio,
+        ) = compute_features(res_clean, j_clean, vec)
+        pred_raw = mdl.predict(feat_vec)[0]
+        ml_score = round(float(np.clip(pred_raw, 0, 100)), 2)
+        final_score = ml_score
+    else:
+        cos_score = fallback_calculate_match(res_clean, j_clean)
+        ml_score = cos_score
+        final_score = cos_score
+        res_skills = extract_skills(res_clean)
+        jd_skills = extract_skills(j_clean)
+        matched_skills = sorted(set(res_skills) & set(jd_skills))
+        missing_skills = sorted(set(jd_skills) - set(res_skills))
+        extra_skills = sorted(set(res_skills) - set(jd_skills))
+        skill_ratio = len(matched_skills) / len(jd_skills) if len(jd_skills) > 0 else 0.0
+        res_tokens = set(res_clean.split())
+        jd_tokens = set(j_clean.split())
+        intersection = len(res_tokens & jd_tokens)
+        union = len(res_tokens | jd_tokens) if len(res_tokens | jd_tokens) > 0 else 1
+        jaccard = intersection / union
+        jd_cov = intersection / len(jd_tokens) if len(jd_tokens) > 0 else 0.0
+        len_ratio = min(len(res_clean), len(j_clean)) / max(len(res_clean), len(j_clean), 1)
+
+    # Determine Tier
+    if final_score >= 80:
+        tier_label = "Excellent Match"
+        tier_color = "#10B981"
+        tier_icon = "🌟"
+        tier_alert_type = "success"
+        tier_desc = "Outstanding alignment! The candidate profile strongly matches the technical stack and core competencies requested."
+    elif final_score >= 60:
+        tier_label = "Good Match"
+        tier_color = "#3B82F6"
+        tier_icon = "👍"
+        tier_alert_type = "info"
+        tier_desc = "Strong candidate profile with solid foundational skills. A few complementary skills or certifications could make this application top-tier."
+    elif final_score >= 40:
+        tier_label = "Moderate Match"
+        tier_color = "#F59E0B"
+        tier_icon = "⚠️"
+        tier_alert_type = "warning"
+        tier_desc = "Moderate fit. The resume shares foundational topics but is missing key technical tools and role-specific requirements."
+    else:
+        tier_label = "Low Match"
+        tier_color = "#EF4444"
+        tier_icon = "❌"
+        tier_alert_type = "error"
+        tier_desc = "Low alignment. Significant skill and domain gaps identified between the candidate's resume and the job prerequisites."
+
+    return {
+        "final_score": final_score,
+        "cos_score": cos_score,
+        "ml_score": ml_score,
+        "tier_label": tier_label,
+        "tier_color": tier_color,
+        "tier_icon": tier_icon,
+        "tier_alert_type": tier_alert_type,
+        "tier_desc": tier_desc,
+        "matched_skills": matched_skills,
+        "missing_skills": missing_skills,
+        "extra_skills": extra_skills,
+        "skill_ratio": skill_ratio,
+        "jd_cov": jd_cov,
+        "jaccard": jaccard,
+        "len_ratio": len_ratio,
+    }
+
+
+# Auto-populate session state on preset selection or initial load
+if "analysis_results" not in st.session_state:
+    st.session_state["analysis_results"] = None
+if "last_preset" not in st.session_state:
+    st.session_state["last_preset"] = None
+
+# If user switched preset scenario, auto-run analysis so graphs are visible immediately
+if (
+    sample_choice != "None (Upload Custom)"
+    and sample_choice in sample_resumes
+    and (st.session_state["last_preset"] != sample_choice or st.session_state["analysis_results"] is None)
+):
+    p_res, p_jd = sample_resumes[sample_choice]
+    st.session_state["analysis_results"] = run_match_analysis(
+        p_res, p_jd, is_model_loaded, vectorizer, model
+    )
+    st.session_state["last_preset"] = sample_choice
+
 analyze_btn = st.button("🚀 Analyze & Match Resume", type="primary", use_container_width=True)
 
 if analyze_btn:
-    # 1. Validation
     raw_resume_text = ""
-    
     if uploaded_resume is not None:
         file_name = uploaded_resume.name.lower()
         with st.spinner("Extracting text from resume file..."):
@@ -697,6 +796,8 @@ if analyze_btn:
                 st.error("Unsupported file format. Please upload a PDF or DOCX file.")
     elif manual_resume_text.strip():
         raw_resume_text = manual_resume_text
+    elif preset_resume.strip():
+        raw_resume_text = preset_resume
         
     if not raw_resume_text.strip():
         st.warning("⚠️ Please upload a resume file (PDF/DOCX) or select a demo scenario.")
@@ -704,208 +805,165 @@ if analyze_btn:
         st.warning("⚠️ Please provide a job description to analyze against.")
     else:
         with st.spinner("🧠 Running NLP preprocessing, TF-IDF vectorization, and ML regression model..."):
-            # 2. Text Preprocessing & Cleaning
-            resume_clean = clean_text(raw_resume_text)
-            jd_clean = clean_text(job_description)
-            
-            # 3. Model Prediction or Fallback
-            if is_model_loaded and vectorizer is not None and model is not None:
-                (
-                    cos_score,
-                    feat_vec,
-                    matched_skills,
-                    missing_skills,
-                    extra_skills,
-                    skill_ratio,
-                    jd_cov,
-                    jaccard,
-                    len_ratio
-                ) = compute_features(resume_clean, jd_clean, vectorizer)
-                pred_raw = model.predict(feat_vec)[0]
-                ml_score = round(float(np.clip(pred_raw, 0, 100)), 2)
-                # Final calibrated match score
-                final_score = ml_score
-            else:
-                cos_score = fallback_calculate_match(resume_clean, jd_clean)
-                ml_score = cos_score
-                final_score = cos_score
-                res_skills = extract_skills(resume_clean)
-                jd_skills = extract_skills(jd_clean)
-                matched_skills = sorted(set(res_skills) & set(jd_skills))
-                missing_skills = sorted(set(jd_skills) - set(res_skills))
-                extra_skills = sorted(set(res_skills) - set(jd_skills))
-                skill_ratio = len(matched_skills) / len(jd_skills) if len(jd_skills) > 0 else 0.0
-                res_tokens = set(resume_clean.split())
-                jd_tokens = set(jd_clean.split())
-                intersection = len(res_tokens & jd_tokens)
-                union = len(res_tokens | jd_tokens) if len(res_tokens | jd_tokens) > 0 else 1
-                jaccard = intersection / union
-                jd_cov = intersection / len(jd_tokens) if len(jd_tokens) > 0 else 0.0
-                len_ratio = min(len(resume_clean), len(jd_clean)) / max(len(resume_clean), len(jd_clean), 1)
+            st.session_state["analysis_results"] = run_match_analysis(
+                raw_resume_text, job_description, is_model_loaded, vectorizer, model
+            )
+            st.session_state["last_preset"] = None
 
-            # 4. Determine Match Tier & Styling
-            if final_score >= 80:
-                tier_label = "Excellent Match"
-                tier_color = "#10B981"
-                tier_icon = "🌟"
-                tier_alert = st.success
-                tier_desc = "Outstanding alignment! The candidate profile strongly matches the technical stack and core competencies requested."
-            elif final_score >= 60:
-                tier_label = "Good Match"
-                tier_color = "#3B82F6"
-                tier_icon = "👍"
-                tier_alert = st.info
-                tier_desc = "Strong candidate profile with solid foundational skills. A few complementary skills or certifications could make this application top-tier."
-            elif final_score >= 40:
-                tier_label = "Moderate Match"
-                tier_color = "#F59E0B"
-                tier_icon = "⚠️"
-                tier_alert = st.warning
-                tier_desc = "Moderate fit. The resume shares foundational topics but is missing key technical tools and role-specific requirements."
-            else:
-                tier_label = "Low Match"
-                tier_color = "#EF4444"
-                tier_icon = "❌"
-                tier_alert = st.error
-                tier_desc = "Low alignment. Significant skill and domain gaps identified between the candidate's resume and the job prerequisites."
-
-        # ---------------------------------------------------------------------
-        # 7. DASHBOARD DISPLAY
-        # ---------------------------------------------------------------------
-        st.markdown("### 📊 Match Analysis Results")
+# -----------------------------------------------------------------------------
+# 7. DASHBOARD DISPLAY & GRAPH VISUALIZATIONS
+# -----------------------------------------------------------------------------
+if st.session_state.get("analysis_results") is not None:
+    res = st.session_state["analysis_results"]
+    
+    st.markdown("### 📊 Match Analysis Results")
+    
+    # Top 3 Metrics
+    m1, m2, m3 = st.columns(3)
+    with m1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">📊 Final Match Score</div>
+            <div class="metric-val" style="color: {res['tier_color']};">{res['final_score']}%</div>
+            <div style="font-size: 0.9rem; font-weight: 600; color: {res['tier_color']};">{res['tier_icon']} {res['tier_label']}</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Top 3 Metrics
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-title">📊 Final Match Score</div>
-                <div class="metric-val" style="color: {tier_color};">{final_score}%</div>
-                <div style="font-size: 0.9rem; font-weight: 600; color: {tier_color};">{tier_icon} {tier_label}</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with m2:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-title">🧠 Cosine Similarity Score</div>
-                <div class="metric-val" style="color: #6366F1;">{cos_score}%</div>
-                <div style="font-size: 0.85rem; color: #94A3B8;">Vector Space Angle Metric</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with m3:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="metric-title">📈 ML Regression Predicted Score</div>
-                <div class="metric-val" style="color: #EC4899;">{ml_score}%</div>
-                <div style="font-size: 0.85rem; color: #94A3B8;">Random Forest Evaluator</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
+    with m2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">🧠 Cosine Similarity Score</div>
+            <div class="metric-val" style="color: #6366F1;">{res['cos_score']}%</div>
+            <div style="font-size: 0.85rem; color: #94A3B8;">Vector Space Angle Metric</div>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Progress Bar & Tier interpretation
-        st.progress(int(final_score))
+    with m3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-title">📈 ML Regression Predicted Score</div>
+            <div class="metric-val" style="color: #EC4899;">{res['ml_score']}%</div>
+            <div style="font-size: 0.85rem; color: #94A3B8;">Random Forest Evaluator</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    # Progress Bar & Tier interpretation
+    st.progress(int(res['final_score']))
+    
+    # Tier Alert Box
+    alert_fn = getattr(st, res['tier_alert_type'], st.info)
+    alert_fn(f"**{res['tier_icon']} {res['tier_label']} ({res['final_score']}%)**: {res['tier_desc']}")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------------------
+    # 8. SKILL ANALYSIS SECTION
+    # -------------------------------------------------------------------------
+    st.markdown("### 🛠️ Skills & Competency Breakdown")
+    
+    col_skills1, col_skills2 = st.columns(2, gap="medium")
+    
+    with col_skills1:
+        st.markdown(f"#### ✅ Matched Skills ({len(res['matched_skills'])})")
+        if res['matched_skills']:
+            badges_html = "".join([f'<span class="badge-chip badge-matched">✓ {skill.title()}</span>' for skill in res['matched_skills']])
+            st.markdown(f"<div>{badges_html}</div>", unsafe_allow_html=True)
+        else:
+            st.info("No direct technical skill matches found in our database taxonomy.")
+
+    with col_skills2:
+        st.markdown(f"#### ❌ Missing Skills ({len(res['missing_skills'])})")
+        if res['missing_skills']:
+            badges_html = "".join([f'<span class="badge-chip badge-missing">✗ {skill.title()}</span>' for skill in res['missing_skills']])
+            st.markdown(f"<div>{badges_html}</div>", unsafe_allow_html=True)
+        else:
+            st.success("🎉 All target skills from the job description appear to be covered!")
+
+    st.markdown("---")
+
+    # -------------------------------------------------------------------------
+    # 9. INTERACTIVE GRAPH VISUALIZATIONS & ALIGNMENT ANALYTICS
+    # -------------------------------------------------------------------------
+    st.markdown("### 🕸️ Graph Visualizations & Predictive Analytics")
+    
+    tab_graph1, tab_graph2, tab_graph3 = st.tabs([
+        "🕸️ Bipartite Skill Network Graph", 
+        "🎯 Multivariate Competency Radar", 
+        "📊 NLP Feature Signal Breakdown"
+    ])
+    
+    with tab_graph1:
+        st.markdown("##### 🔗 Candidate vs. Job Requirement Knowledge Graph")
+        st.caption("Visual network mapping candidate skills to job prerequisites. Green indicates verified matches, Red indicates missing job requirements, and Blue indicates candidate strengths.")
+        fig_network = generate_network_graph(res['matched_skills'], res['missing_skills'], res['extra_skills'])
+        st.pyplot(fig_network, use_container_width=True)
+        plt.close(fig_network)
         
-        # Tier Alert Box
-        tier_alert(f"**{tier_icon} {tier_label} ({final_score}%)**: {tier_desc}")
+    with tab_graph2:
+        st.markdown("##### 🧭 5-Dimensional Competency Alignment Radar")
+        st.caption("Multi-axis polar evaluation comparing Cosine Similarity, Skill Ratio, Keyword Coverage, Jaccard Token Overlap, and Document Length Alignment.")
+        fig_radar = generate_radar_chart(
+            res['cos_score'], 
+            res['skill_ratio'] * 100, 
+            res['jd_cov'] * 100, 
+            res['jaccard'] * 100, 
+            res['len_ratio'] * 100, 
+            res['final_score']
+        )
+        st.pyplot(fig_radar, use_container_width=True)
+        plt.close(fig_radar)
 
-        st.markdown("---")
+    with tab_graph3:
+        st.markdown("##### 📈 Machine Learning Input Signals")
+        st.caption("Alignment percentages for each engineered feature feeding into the Random Forest Regression Model.")
+        fig_bar = generate_feature_bar_chart(
+            res['cos_score'], 
+            res['skill_ratio'] * 100, 
+            res['jd_cov'] * 100, 
+            res['jaccard'] * 100, 
+            res['len_ratio'] * 100
+        )
+        st.pyplot(fig_bar, use_container_width=True)
+        plt.close(fig_bar)
 
-        # ---------------------------------------------------------------------
-        # 8. SKILL ANALYSIS SECTION
-        # ---------------------------------------------------------------------
-        st.markdown("### 🛠️ Skills & Competency Breakdown")
+    st.markdown("---")
+
+    # -------------------------------------------------------------------------
+    # 10. PERSONALIZED AI RECOMMENDATIONS
+    # -------------------------------------------------------------------------
+    st.markdown("### 💡 Personalized AI Recommendations")
+    
+    rec_col1, rec_col2 = st.columns([1.5, 1], gap="medium")
+    
+    with rec_col1:
+        st.markdown("##### 📌 Strategic Action Items")
+        if res['missing_skills']:
+            top_missing = ", ".join([f"**{s.title()}**" for s in res['missing_skills'][:5]])
+            st.markdown(f"- **Bridge Critical Skill Gaps**: Prioritize adding projects or experience demonstrating knowledge of {top_missing}.")
         
-        col_skills1, col_skills2 = st.columns(2, gap="medium")
-        
-        with col_skills1:
-            st.markdown(f"#### ✅ Matched Skills ({len(matched_skills)})")
-            if matched_skills:
-                badges_html = "".join([f'<span class="badge-chip badge-matched">✓ {skill.title()}</span>' for skill in matched_skills])
-                st.markdown(f"<div>{badges_html}</div>", unsafe_allow_html=True)
-            else:
-                st.info("No direct technical skill matches found in our database taxonomy.")
+        if res['final_score'] >= 80:
+            st.markdown("- **Optimize Impact Metrics**: Quantify your achievements (e.g., *'improved pipeline latency by 35%'*, *'scaled service to 10k RPS'*) to make your strong resume stand out even more.")
+            st.markdown("- **Prepare for Domain Deep-Dives**: Review system design and architectural trade-offs related to the matched technologies.")
+        elif res['final_score'] >= 60:
+            st.markdown("- **Align Resume Terminology**: Ensure technical terms in your resume mirror the exact keywords used in the job description.")
+            st.markdown("- **Highlight Relevant Projects**: Add a dedicated *Projects* or *Technical Highlights* section spotlighting the required stack.")
+        elif res['final_score'] >= 40:
+            st.markdown("- **Tailor Your Summary & Skills**: Re-organize your resume to put matching technical skills and relevant tools front-and-center.")
+            st.markdown("- **Upskill in Core Areas**: Take focused courses or build hands-on repositories showcasing the missing tools.")
+        else:
+            st.markdown("- **Fundamental Re-alignment**: The target position requires a significantly different core skill set. Focus on building foundational experience in this domain.")
+            st.markdown("- **Build Capstone Projects**: Develop portfolio projects demonstrating end-to-end implementation of the required tools.")
 
-        with col_skills2:
-            st.markdown(f"#### ❌ Missing Skills ({len(missing_skills)})")
-            if missing_skills:
-                badges_html = "".join([f'<span class="badge-chip badge-missing">✗ {skill.title()}</span>' for skill in missing_skills])
-                st.markdown(f"<div>{badges_html}</div>", unsafe_allow_html=True)
-            else:
-                st.success("🎉 All target skills from the job description appear to be covered!")
-
-        st.markdown("---")
-
-        # ---------------------------------------------------------------------
-        # 9. INTERACTIVE GRAPH VISUALIZATIONS & ALIGNMENT ANALYTICS
-        # ---------------------------------------------------------------------
-        st.markdown("### 🕸️ Graph Visualizations & Predictive Analytics")
-        
-        tab_graph1, tab_graph2, tab_graph3 = st.tabs([
-            "🕸️ Bipartite Skill Network Graph", 
-            "🎯 Multivariate Competency Radar", 
-            "📊 NLP Feature Signal Breakdown"
-        ])
-        
-        with tab_graph1:
-            st.markdown("##### 🔗 Candidate vs. Job Requirement Knowledge Graph")
-            st.caption("Visual network mapping candidate skills to job prerequisites. Green indicates verified matches, Red indicates missing job requirements, and Blue indicates candidate strengths.")
-            fig_network = generate_network_graph(matched_skills, missing_skills, extra_skills)
-            st.pyplot(fig_network, use_container_width=True)
-            plt.close(fig_network)
-            
-        with tab_graph2:
-            st.markdown("##### 🧭 5-Dimensional Competency Alignment Radar")
-            st.caption("Multi-axis polar evaluation comparing Cosine Similarity, Skill Ratio, Keyword Coverage, Jaccard Token Overlap, and Document Length Alignment.")
-            fig_radar = generate_radar_chart(cos_score, skill_ratio * 100, jd_cov * 100, jaccard * 100, len_ratio * 100, final_score)
-            st.pyplot(fig_radar, use_container_width=True)
-            plt.close(fig_radar)
-
-        with tab_graph3:
-            st.markdown("##### 📈 Machine Learning Input Signals")
-            st.caption("Alignment percentages for each engineered feature feeding into the Random Forest Regression Model.")
-            fig_bar = generate_feature_bar_chart(cos_score, skill_ratio * 100, jd_cov * 100, jaccard * 100, len_ratio * 100)
-            st.pyplot(fig_bar, use_container_width=True)
-            plt.close(fig_bar)
-
-        st.markdown("---")
-
-        # ---------------------------------------------------------------------
-        # 10. PERSONALIZED AI RECOMMENDATIONS
-        # ---------------------------------------------------------------------
-        st.markdown("### 💡 Personalized AI Recommendations")
-        
-        rec_col1, rec_col2 = st.columns([1.5, 1], gap="medium")
-        
-        with rec_col1:
-            st.markdown("##### 📌 Strategic Action Items")
-            if missing_skills:
-                top_missing = ", ".join([f"**{s.title()}**" for s in missing_skills[:5]])
-                st.markdown(f"- **Bridge Critical Skill Gaps**: Prioritize adding projects or experience demonstrating knowledge of {top_missing}.")
-            
-            if final_score >= 80:
-                st.markdown("- **Optimize Impact Metrics**: Quantify your achievements (e.g., *'improved pipeline latency by 35%'*, *'scaled service to 10k RPS'*) to make your strong resume stand out even more.")
-                st.markdown("- **Prepare for Domain Deep-Dives**: Review system design and architectural trade-offs related to the matched technologies.")
-            elif final_score >= 60:
-                st.markdown("- **Align Resume Terminology**: Ensure technical terms in your resume mirror the exact keywords used in the job description.")
-                st.markdown("- **Highlight Relevant Projects**: Add a dedicated *Projects* or *Technical Highlights* section spotlighting the required stack.")
-            elif final_score >= 40:
-                st.markdown("- **Tailor Your Summary & Skills**: Re-organize your resume to put matching technical skills and relevant tools front-and-center.")
-                st.markdown("- **Upskill in Core Areas**: Take focused courses or build hands-on repositories showcasing the missing tools.")
-            else:
-                st.markdown("- **Fundamental Re-alignment**: The target position requires a significantly different core skill set. Focus on building foundational experience in this domain.")
-                st.markdown("- **Build Capstone Projects**: Develop portfolio projects demonstrating end-to-end implementation of the required tools.")
-
-        with rec_col2:
-            st.markdown("##### 📈 Match Score Breakdown")
-            st.markdown(f"""
-            - **Skill Coverage**: {len(matched_skills)} / {max(len(matched_skills) + len(missing_skills), 1)} skills matched
-            - **NLP Cosine Angle**: `{cos_score}%`
-            - **ML Non-Linear Score**: `{ml_score}%`
-            - **Target Range**: `80-100%` for top priority interviews
-            """)
+    with rec_col2:
+        st.markdown("##### 📈 Match Score Breakdown")
+        st.markdown(f"""
+        - **Skill Coverage**: {len(res['matched_skills'])} / {max(len(res['matched_skills']) + len(res['missing_skills']), 1)} skills matched
+        - **NLP Cosine Angle**: `{res['cos_score']}%`
+        - **ML Non-Linear Score**: `{res['ml_score']}%`
+        - **Target Range**: `80-100%` for top priority interviews
+        """)
 
 # -----------------------------------------------------------------------------
 # 10. EDUCATIONAL SECTION - HOW THE AI MODEL WORKS

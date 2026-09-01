@@ -128,6 +128,10 @@ def extract_features(resume_clean: str, jd_clean: str, vectorizer: TfidfVectoriz
     return [cos_sim, jaccard, jd_cov, skill_ratio, len(matched_skills), len_ratio]
 
 
+# Alias for compatibility with notebook and inference modules
+compute_features = extract_features
+
+
 def train_pipeline():
     """
     Main training routine:
