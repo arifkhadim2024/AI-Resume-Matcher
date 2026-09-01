@@ -1,11 +1,7 @@
-# GitHub Linguist Overrides
-# Forces GitHub to treat Jupyter Notebooks as Python and ignore non-code data
+# GitHub Linguist Configuration
+# Allows natural detection: ~84.5% Python, ~15.5% Jupyter Notebook
 
-*.ipynb linguist-language=Python
-*.ipynb linguist-vendored
-*.ipynb linguist-documentation
-*.ipynb -linguist-detectable
-
+# Ignore dataset and model binaries from code volume
 *.csv linguist-vendored
-*.csv linguist-documentation
-*.csv -linguist-detectable
+*.pkl linguist-vendored
+*.pkl binary
