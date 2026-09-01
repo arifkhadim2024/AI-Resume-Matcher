@@ -270,83 +270,124 @@ def compute_features(resume_clean: str, jd_clean: str, vectorizer: TfidfVectoriz
 
 
 def generate_network_graph(matched_skills: list, missing_skills: list, extra_skills: list):
-    """Generate NetworkX Bipartite Knowledge Graph."""
+    """Generate high-aesthetic 3-Column Structured Bipartite Knowledge Graph."""
     G = nx.Graph()
+    pos = {}
+    
+    # 1. Primary Entity Hub Nodes
     G.add_node("Candidate Resume", node_type="entity_resume")
     G.add_node("Job Description", node_type="entity_jd")
+    pos["Candidate Resume"] = np.array([0.25, 0.5])
+    pos["Job Description"] = np.array([0.75, 0.5])
     
-    for s in matched_skills:
-        G.add_node(s.title(), node_type="matched")
-        G.add_edge("Candidate Resume", s.title(), weight=1.0, relation="possesses")
-        G.add_edge("Job Description", s.title(), weight=1.0, relation="requires")
+    # 2. Matched Skills (Center Column)
+    matched_display = matched_skills[:10]
+    n_matched = len(matched_display)
+    for i, s in enumerate(matched_display):
+        node_name = s.title()
+        G.add_node(node_name, node_type="matched")
+        G.add_edge("Candidate Resume", node_name, weight=1.0, relation="possesses")
+        G.add_edge("Job Description", node_name, weight=1.0, relation="requires")
+        y_coord = 0.15 + (0.7 * (i / max(n_matched - 1, 1))) if n_matched > 1 else 0.5
+        pos[node_name] = np.array([0.50, y_coord])
         
-    for s in missing_skills:
-        G.add_node(s.title(), node_type="missing")
-        G.add_edge("Job Description", s.title(), weight=0.8, relation="missing")
+    # 3. Candidate Extra Skills (Left Column)
+    extra_display = extra_skills[:6]
+    n_extra = len(extra_display)
+    for i, s in enumerate(extra_display):
+        node_name = s.title()
+        G.add_node(node_name, node_type="extra")
+        G.add_edge("Candidate Resume", node_name, weight=0.8, relation="extra")
+        y_coord = 0.2 + (0.6 * (i / max(n_extra - 1, 1))) if n_extra > 1 else 0.5
+        pos[node_name] = np.array([0.02, y_coord])
         
-    for s in extra_skills[:6]:
-        G.add_node(s.title(), node_type="extra")
-        G.add_edge("Candidate Resume", s.title(), weight=0.8, relation="extra")
+    # 4. Missing Skills (Right Column)
+    missing_display = missing_skills[:8]
+    n_missing = len(missing_display)
+    for i, s in enumerate(missing_display):
+        node_name = s.title()
+        G.add_node(node_name, node_type="missing")
+        G.add_edge("Job Description", node_name, weight=0.8, relation="missing")
+        y_coord = 0.15 + (0.7 * (i / max(n_missing - 1, 1))) if n_missing > 1 else 0.5
+        pos[node_name] = np.array([0.98, y_coord])
         
-    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='none')
+    fig, ax = plt.subplots(figsize=(11.5, 6.0), facecolor='none')
     ax.set_facecolor('none')
     
-    pos = nx.spring_layout(G, k=0.75, seed=42)
+    # Draw Background Column Zone Highlights
+    ax.axvspan(-0.06, 0.12, color='#0EA5E9', alpha=0.04, lw=0)
+    ax.axvspan(0.40, 0.60, color='#10B981', alpha=0.06, lw=0)
+    ax.axvspan(0.88, 1.06, color='#EF4444', alpha=0.04, lw=0)
     
+    # Column Header Annotations
+    ax.text(0.02, 0.96, f"Candidate Extras ({len(extra_skills)})", ha='center', va='center', fontsize=9.5, fontweight='bold', color='#0284C7',
+            bbox=dict(boxstyle="round,pad=0.3", facecolor='#E0F2FE', edgecolor='#BAE6FD', alpha=0.95))
+    ax.text(0.50, 0.96, f"✓ Matched Skills ({len(matched_skills)})", ha='center', va='center', fontsize=10, fontweight='bold', color='#059669',
+            bbox=dict(boxstyle="round,pad=0.3", facecolor='#D1FAE5', edgecolor='#A7F3D0', alpha=0.95))
+    ax.text(0.98, 0.96, f"✗ Missing Skills ({len(missing_skills)})", ha='center', va='center', fontsize=9.5, fontweight='bold', color='#DC2626',
+            bbox=dict(boxstyle="round,pad=0.3", facecolor='#FEE2E2', edgecolor='#FECACA', alpha=0.95))
+            
     node_colors = []
     node_sizes = []
+    node_borders = []
     for node, data in G.nodes(data=True):
         ntype = data.get('node_type', '')
         if ntype == 'entity_resume':
             node_colors.append('#2563EB')
-            node_sizes.append(2000)
+            node_sizes.append(2600)
+            node_borders.append('#1D4ED8')
         elif ntype == 'entity_jd':
             node_colors.append('#7C3AED')
-            node_sizes.append(2000)
+            node_sizes.append(2600)
+            node_borders.append('#6D28D9')
         elif ntype == 'matched':
             node_colors.append('#10B981')
-            node_sizes.append(1000)
+            node_sizes.append(1100)
+            node_borders.append('#047857')
         elif ntype == 'missing':
             node_colors.append('#EF4444')
-            node_sizes.append(850)
+            node_sizes.append(950)
+            node_borders.append('#B91C1C')
         elif ntype == 'extra':
             node_colors.append('#0EA5E9')
-            node_sizes.append(850)
-        else:
-            node_colors.append('#94A3B8')
-            node_sizes.append(700)
+            node_sizes.append(950)
+            node_borders.append('#0369A1')
             
-    edge_colors = []
-    edge_styles = []
+    # Draw Edges
     for u, v, data in G.edges(data=True):
         rel = data.get('relation', '')
+        p1, p2 = pos[u], pos[v]
         if rel in ('possesses', 'requires'):
-            edge_colors.append('#10B981')
-            edge_styles.append('-')
+            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color='#10B981', lw=2.2, alpha=0.75, zorder=1)
         elif rel == 'missing':
-            edge_colors.append('#EF4444')
-            edge_styles.append(':')
+            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color='#EF4444', lw=1.6, linestyle='--', alpha=0.7, zorder=1)
         else:
-            edge_colors.append('#0EA5E9')
-            edge_styles.append('--')
+            ax.plot([p1[0], p2[0]], [p1[1], p2[1]], color='#0EA5E9', lw=1.6, linestyle=':', alpha=0.7, zorder=1)
             
-    nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_colors, node_size=node_sizes, alpha=0.92, edgecolors='#1E293B', linewidths=1.2)
-    nx.draw_networkx_edges(G, pos, ax=ax, edge_color=edge_colors, width=1.8, alpha=0.75)
-    nx.draw_networkx_labels(G, pos, ax=ax, font_size=8.5, font_weight='bold', font_color='#0F172A')
-    
-    legend_elements = [
-        plt.Line2D([0], [0], marker='o', color='w', label=f'Matched Skills ({len(matched_skills)})', markerfacecolor='#10B981', markersize=10),
-        plt.Line2D([0], [0], marker='o', color='w', label=f'Missing Skills ({len(missing_skills)})', markerfacecolor='#EF4444', markersize=10),
-        plt.Line2D([0], [0], marker='o', color='w', label=f'Candidate Strengths ({len(extra_skills)})', markerfacecolor='#0EA5E9', markersize=10),
-    ]
-    ax.legend(handles=legend_elements, loc='upper left', frameon=True, facecolor='#FFFFFF', framealpha=0.85, fontsize=9)
+    # Draw Nodes and Labels
+    for (node, p), c, s, b in zip(pos.items(), node_colors, node_sizes, node_borders):
+        ax.scatter(p[0], p[1], s=s, c=c, edgecolors=b, linewidths=2.0, alpha=0.95, zorder=2)
+        
+        is_entity = node in ("Candidate Resume", "Job Description")
+        font_c = '#FFFFFF' if is_entity else '#0F172A'
+        font_w = 'bold'
+        font_s = 9.0 if is_entity else 8.5
+        
+        if is_entity:
+            ax.text(p[0], p[1], node, ha='center', va='center', color=font_c, fontsize=font_s, fontweight=font_w, zorder=3)
+        else:
+            ax.text(p[0], p[1], node, ha='center', va='center', color=font_c, fontsize=font_s, fontweight=font_w, zorder=3,
+                    bbox=dict(boxstyle="round,pad=0.22", facecolor='#FFFFFF', edgecolor=b, alpha=0.92, lw=1.2))
+                    
+    ax.set_xlim(-0.10, 1.10)
+    ax.set_ylim(0.04, 1.06)
     ax.axis('off')
     plt.tight_layout()
     return fig
 
 
 def generate_radar_chart(cos_score: float, skill_ratio: float, jd_cov: float, jaccard: float, len_ratio: float, final_score: float):
-    """Generate 5-Dimensional Competency Radar Chart."""
+    """Generate 5-Dimensional Competency Radar Chart with stylized annotations."""
     categories = ['Cosine Similarity', 'Skill Match Ratio', 'JD Coverage', 'Jaccard Overlap', 'Length Alignment']
     values = [cos_score, skill_ratio, jd_cov, jaccard, len_ratio]
     values += values[:1]
@@ -354,14 +395,22 @@ def generate_radar_chart(cos_score: float, skill_ratio: float, jd_cov: float, ja
     angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
     angles += angles[:1]
     
-    fig, ax = plt.subplots(figsize=(6.5, 5.2), subplot_kw=dict(polar=True), facecolor='none')
+    fig, ax = plt.subplots(figsize=(6.8, 5.5), subplot_kw=dict(polar=True), facecolor='none')
     ax.set_facecolor('none')
     
-    ax.plot(angles, values, color='#2563EB', linewidth=2.5, linestyle='solid')
-    ax.fill(angles, values, color='#3B82F6', alpha=0.35)
+    # Polygon plot
+    ax.plot(angles, values, color='#2563EB', linewidth=2.5, linestyle='solid', zorder=3)
+    ax.fill(angles, values, color='#3B82F6', alpha=0.35, zorder=2)
+    ax.scatter(angles[:-1], values[:-1], color='#1D4ED8', s=60, edgecolors='white', linewidths=1.5, zorder=4)
+    
+    # Vertex Value Labels
+    for ang, val in zip(angles[:-1], values[:-1]):
+        ax.text(ang, min(val + 8, 105), f"{val:.1f}%", ha='center', va='center', fontsize=8.5, fontweight='bold', color='#1E40AF',
+                bbox=dict(boxstyle="round,pad=0.2", facecolor='#EFF6FF', edgecolor='#93C5FD', alpha=0.9, lw=0.8))
+                
     ax.set_xticks(angles[:-1])
     ax.set_xticklabels(categories, fontweight='bold', size=9.5)
-    ax.set_ylim(0, 100)
+    ax.set_ylim(0, 105)
     ax.set_yticks([20, 40, 60, 80, 100])
     ax.set_yticklabels(['20%', '40%', '60%', '80%', '100%'], color='#64748B', size=8)
     
@@ -370,23 +419,24 @@ def generate_radar_chart(cos_score: float, skill_ratio: float, jd_cov: float, ja
 
 
 def generate_feature_bar_chart(cos_score: float, skill_ratio: float, jd_cov: float, jaccard: float, len_ratio: float):
-    """Generate NLP Feature Alignment Bar Chart."""
+    """Generate NLP Feature Alignment Bar Chart with styled badges."""
     metrics = ['Cosine Similarity', 'Skill Match Ratio', 'JD Keyword Coverage', 'Jaccard Token Overlap', 'Length Alignment']
     scores = [cos_score, skill_ratio, jd_cov, jaccard, len_ratio]
     colors = ['#6366F1', '#10B981', '#F59E0B', '#3B82F6', '#EC4899']
     
-    fig, ax = plt.subplots(figsize=(8.5, 4.2), facecolor='none')
+    fig, ax = plt.subplots(figsize=(8.8, 4.4), facecolor='none')
     ax.set_facecolor('none')
-    bars = ax.barh(metrics[::-1], scores[::-1], color=colors[::-1], height=0.55, edgecolor='#1E293B', linewidth=0.8)
+    bars = ax.barh(metrics[::-1], scores[::-1], color=colors[::-1], height=0.52, edgecolor='#1E293B', linewidth=0.8, alpha=0.9)
     
-    for bar in bars:
+    for bar, col in zip(bars, colors[::-1]):
         width = bar.get_width()
-        ax.text(width + 1.5, bar.get_y() + bar.get_height()/2, f"{width:.1f}%", 
-                va='center', ha='left', fontsize=9.5, fontweight='bold', color='#1E293B')
+        ax.text(width + 2.0, bar.get_y() + bar.get_height()/2, f"{width:.1f}%", 
+                va='center', ha='left', fontsize=9.5, fontweight='bold', color=col,
+                bbox=dict(boxstyle="round,pad=0.2", facecolor='#F8FAFC', edgecolor=col, alpha=0.9, lw=0.8))
                 
-    ax.set_xlim(0, 115)
+    ax.set_xlim(0, 118)
     ax.set_xlabel("Alignment Score (%)", fontweight='bold')
-    ax.grid(axis='x', linestyle='--', alpha=0.5)
+    ax.grid(axis='x', linestyle='--', alpha=0.45)
     plt.tight_layout()
     return fig
 
