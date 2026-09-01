@@ -55,18 +55,19 @@ Candidate Resume (PDF / DOCX)               Target Job Description
 ```
 AI_Resume_Matcher/
 │
-├── app.py                     # Streamlit Web Application (UI & Inference)
-├── train_model.py             # ML Model Training & Evaluation Pipeline
-├── requirements.txt           # Project Dependencies
-├── README.md                  # Comprehensive Documentation
-├── .gitignore                 # Git ignore rules for virtualenvs & caches
+├── AI_Resume_Graph_Prediction.ipynb # Jupyter Notebook (Graph Analytics & ML Prediction)
+├── app.py                           # Streamlit Web Application (UI & Inference)
+├── train_model.py                   # ML Model Training & Evaluation Pipeline
+├── requirements.txt                 # Project Dependencies
+├── README.md                        # Comprehensive Documentation
+├── .gitignore                       # Git ignore rules for virtualenvs & caches
 │
 ├── data/
-│   └── resume_jd_dataset.csv  # Paired Resume-JD Educational Dataset
+│   └── resume_jd_dataset.csv        # Paired Resume-JD Educational Dataset
 │
 └── model/
-    ├── regression_model.pkl   # Trained Random Forest Regression Model
-    └── tfidf_vectorizer.pkl   # Fitted TF-IDF Vectorizer
+    ├── regression_model.pkl         # Trained Random Forest Regression Model
+    └── tfidf_vectorizer.pkl         # Fitted TF-IDF Vectorizer
 ```
 
 ---
@@ -168,6 +169,12 @@ streamlit run app.py
 
 Open your browser and navigate to `http://localhost:8501`.
 
+### Step 6: Run the Graph Prediction & Analytics Notebook (Optional)
+Launch Jupyter to explore interactive model training, residual plots, and bipartite knowledge graphs:
+```bash
+jupyter notebook AI_Resume_Graph_Prediction.ipynb
+```
+
 ---
 
 ## 🖥️ Streamlit Application Features
@@ -186,6 +193,26 @@ Open your browser and navigate to `http://localhost:8501`.
 - **Skill Gap Analysis**: Visual badge chips displaying **Matched Skills** vs. **Missing Skills**.
 - **Personalized Recommendations**: Dynamic action items tailored to the score tier and specific missing keywords.
 - **Educational Explainer**: Interactive breakdown of how TF-IDF, Cosine Similarity, and Random Forest Regression function.
+
+---
+
+## 📓 Jupyter Notebook & Graph Prediction Features
+
+The notebook [`AI_Resume_Graph_Prediction.ipynb`](AI_Resume_Graph_Prediction.ipynb) includes:
+1. **Interactive Exploratory Data Analysis**: Word count distributions, score histograms, and correlation heatmaps.
+2. **Comparative Model Training**: Benchmarks `RandomForestRegressor`, `GradientBoostingRegressor`, and `RidgeRegression`.
+3. **Predictive Diagnostic Graphs**:
+   - **Actual vs. Predicted Plot**: Evaluates linearity and test $R^2$ score against the ideal 45° line.
+   - **Residual Analysis Plot**: Residual error dispersion across prediction ranges.
+   - **Feature Importance Chart**: Gini importance breakdown for Cosine Similarity, Skill Ratio, Jaccard Index, and Length Ratio.
+   - **Model Comparison Metrics**: Side-by-side MAE and $R^2$ charts.
+4. **Bipartite Skill & Knowledge Graph Analytics**:
+   - Models candidate skills and job requirements as a bipartite graph $G = (V_{\text{candidate}}, V_{\text{job}}, E)$ using `NetworkX`.
+   - Visual color-coding: 🟢 Matched Skills, 🔴 Missing Prerequisites, 🔵 Additional Candidate Strengths.
+   - Calculates graph density, node degree, and requirement coverage ratios.
+5. **Dual-Graph Inference Visualizer**:
+   - Live function `predict_and_plot_resume_match(resume, jd)` generating both a **Bipartite Skill Graph** and a **Multivariate Competency Radar Chart**.
+   - Pre-evaluated across 3 hiring scenarios (Senior Python Dev, Frontend Dev, Designer to AI Engineer).
 
 ---
 

@@ -5,3 +5,8 @@ scikit-learn
 PyPDF2
 python-docx
 joblib
+matplotlib
+seaborn
+networkx
+jupyter
+notebook
