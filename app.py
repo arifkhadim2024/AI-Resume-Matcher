@@ -16,6 +16,13 @@ import PyPDF2
 from docx import Document
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+import matplotlib.pyplot as plt
+import networkx as nx
+
+# Configure Matplotlib styling for high-definition UI rendering
+plt.style.use('seaborn-v0_8-whitegrid' if 'seaborn-v0_8-whitegrid' in plt.style.available else 'default')
+plt.rcParams['font.family'] = 'sans-serif'
+plt.rcParams['figure.dpi'] = 140
 
 # -----------------------------------------------------------------------------
 # 1. APPLICATION CONFIGURATION & STYLING
@@ -217,7 +224,7 @@ def extract_skills(text: str) -> list:
 def compute_features(resume_clean: str, jd_clean: str, vectorizer: TfidfVectorizer) -> tuple:
     """
     Compute Cosine Similarity and regression feature vector:
-    Returns (cosine_score_pct, feature_vector, matched_skills, missing_skills)
+    Returns (cosine_score_pct, feature_vector, matched_skills, missing_skills, extra_skills, skill_ratio, jd_cov, jaccard, len_ratio)
     """
     # 1. Vectorize text
     vec_res = vectorizer.transform([resume_clean])
@@ -242,13 +249,146 @@ def compute_features(resume_clean: str, jd_clean: str, vectorizer: TfidfVectoriz
     jd_skills = extract_skills(jd_clean)
     matched_skills = sorted(list(set(res_skills) & set(jd_skills)))
     missing_skills = sorted(list(set(jd_skills) - set(res_skills)))
+    extra_skills = sorted(list(set(res_skills) - set(jd_skills)))
     skill_ratio = len(matched_skills) / len(jd_skills) if len(jd_skills) > 0 else 0.0
     
     # 6. Length Ratio
     len_ratio = min(len(resume_clean), len(jd_clean)) / max(len(resume_clean), len(jd_clean), 1)
     
     feature_vector = np.array([[cos_sim, jaccard, jd_cov, skill_ratio, len(matched_skills), len_ratio]])
-    return cos_score_pct, feature_vector, matched_skills, missing_skills
+    return (
+        cos_score_pct,
+        feature_vector,
+        matched_skills,
+        missing_skills,
+        extra_skills,
+        skill_ratio,
+        jd_cov,
+        jaccard,
+        len_ratio
+    )
+
+
+def generate_network_graph(matched_skills: list, missing_skills: list, extra_skills: list):
+    """Generate NetworkX Bipartite Knowledge Graph."""
+    G = nx.Graph()
+    G.add_node("Candidate Resume", node_type="entity_resume")
+    G.add_node("Job Description", node_type="entity_jd")
+    
+    for s in matched_skills:
+        G.add_node(s.title(), node_type="matched")
+        G.add_edge("Candidate Resume", s.title(), weight=1.0, relation="possesses")
+        G.add_edge("Job Description", s.title(), weight=1.0, relation="requires")
+        
+    for s in missing_skills:
+        G.add_node(s.title(), node_type="missing")
+        G.add_edge("Job Description", s.title(), weight=0.8, relation="missing")
+        
+    for s in extra_skills[:6]:
+        G.add_node(s.title(), node_type="extra")
+        G.add_edge("Candidate Resume", s.title(), weight=0.8, relation="extra")
+        
+    fig, ax = plt.subplots(figsize=(10, 5.5), facecolor='none')
+    ax.set_facecolor('none')
+    
+    pos = nx.spring_layout(G, k=0.75, seed=42)
+    
+    node_colors = []
+    node_sizes = []
+    for node, data in G.nodes(data=True):
+        ntype = data.get('node_type', '')
+        if ntype == 'entity_resume':
+            node_colors.append('#2563EB')
+            node_sizes.append(2000)
+        elif ntype == 'entity_jd':
+            node_colors.append('#7C3AED')
+            node_sizes.append(2000)
+        elif ntype == 'matched':
+            node_colors.append('#10B981')
+            node_sizes.append(1000)
+        elif ntype == 'missing':
+            node_colors.append('#EF4444')
+            node_sizes.append(850)
+        elif ntype == 'extra':
+            node_colors.append('#0EA5E9')
+            node_sizes.append(850)
+        else:
+            node_colors.append('#94A3B8')
+            node_sizes.append(700)
+            
+    edge_colors = []
+    edge_styles = []
+    for u, v, data in G.edges(data=True):
+        rel = data.get('relation', '')
+        if rel in ('possesses', 'requires'):
+            edge_colors.append('#10B981')
+            edge_styles.append('-')
+        elif rel == 'missing':
+            edge_colors.append('#EF4444')
+            edge_styles.append(':')
+        else:
+            edge_colors.append('#0EA5E9')
+            edge_styles.append('--')
+            
+    nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_colors, node_size=node_sizes, alpha=0.92, edgecolors='#1E293B', linewidths=1.2)
+    nx.draw_networkx_edges(G, pos, ax=ax, edge_color=edge_colors, width=1.8, alpha=0.75)
+    nx.draw_networkx_labels(G, pos, ax=ax, font_size=8.5, font_weight='bold', font_color='#0F172A')
+    
+    legend_elements = [
+        plt.Line2D([0], [0], marker='o', color='w', label=f'Matched Skills ({len(matched_skills)})', markerfacecolor='#10B981', markersize=10),
+        plt.Line2D([0], [0], marker='o', color='w', label=f'Missing Skills ({len(missing_skills)})', markerfacecolor='#EF4444', markersize=10),
+        plt.Line2D([0], [0], marker='o', color='w', label=f'Candidate Strengths ({len(extra_skills)})', markerfacecolor='#0EA5E9', markersize=10),
+    ]
+    ax.legend(handles=legend_elements, loc='upper left', frameon=True, facecolor='#FFFFFF', framealpha=0.85, fontsize=9)
+    ax.axis('off')
+    plt.tight_layout()
+    return fig
+
+
+def generate_radar_chart(cos_score: float, skill_ratio: float, jd_cov: float, jaccard: float, len_ratio: float, final_score: float):
+    """Generate 5-Dimensional Competency Radar Chart."""
+    categories = ['Cosine Similarity', 'Skill Match Ratio', 'JD Coverage', 'Jaccard Overlap', 'Length Alignment']
+    values = [cos_score, skill_ratio, jd_cov, jaccard, len_ratio]
+    values += values[:1]
+    
+    angles = np.linspace(0, 2 * np.pi, len(categories), endpoint=False).tolist()
+    angles += angles[:1]
+    
+    fig, ax = plt.subplots(figsize=(6.5, 5.2), subplot_kw=dict(polar=True), facecolor='none')
+    ax.set_facecolor('none')
+    
+    ax.plot(angles, values, color='#2563EB', linewidth=2.5, linestyle='solid')
+    ax.fill(angles, values, color='#3B82F6', alpha=0.35)
+    ax.set_xticks(angles[:-1])
+    ax.set_xticklabels(categories, fontweight='bold', size=9.5)
+    ax.set_ylim(0, 100)
+    ax.set_yticks([20, 40, 60, 80, 100])
+    ax.set_yticklabels(['20%', '40%', '60%', '80%', '100%'], color='#64748B', size=8)
+    
+    plt.tight_layout()
+    return fig
+
+
+def generate_feature_bar_chart(cos_score: float, skill_ratio: float, jd_cov: float, jaccard: float, len_ratio: float):
+    """Generate NLP Feature Alignment Bar Chart."""
+    metrics = ['Cosine Similarity', 'Skill Match Ratio', 'JD Keyword Coverage', 'Jaccard Token Overlap', 'Length Alignment']
+    scores = [cos_score, skill_ratio, jd_cov, jaccard, len_ratio]
+    colors = ['#6366F1', '#10B981', '#F59E0B', '#3B82F6', '#EC4899']
+    
+    fig, ax = plt.subplots(figsize=(8.5, 4.2), facecolor='none')
+    ax.set_facecolor('none')
+    bars = ax.barh(metrics[::-1], scores[::-1], color=colors[::-1], height=0.55, edgecolor='#1E293B', linewidth=0.8)
+    
+    for bar in bars:
+        width = bar.get_width()
+        ax.text(width + 1.5, bar.get_y() + bar.get_height()/2, f"{width:.1f}%", 
+                va='center', ha='left', fontsize=9.5, fontweight='bold', color='#1E293B')
+                
+    ax.set_xlim(0, 115)
+    ax.set_xlabel("Alignment Score (%)", fontweight='bold')
+    ax.grid(axis='x', linestyle='--', alpha=0.5)
+    plt.tight_layout()
+    return fig
 
 
 def fallback_calculate_match(resume_clean: str, jd_clean: str) -> float:
@@ -393,9 +533,17 @@ if analyze_btn:
             
             # 3. Model Prediction or Fallback
             if is_model_loaded and vectorizer is not None and model is not None:
-                cos_score, feat_vec, matched_skills, missing_skills = compute_features(
-                    resume_clean, jd_clean, vectorizer
-                )
+                (
+                    cos_score,
+                    feat_vec,
+                    matched_skills,
+                    missing_skills,
+                    extra_skills,
+                    skill_ratio,
+                    jd_cov,
+                    jaccard,
+                    len_ratio
+                ) = compute_features(resume_clean, jd_clean, vectorizer)
                 pred_raw = model.predict(feat_vec)[0]
                 ml_score = round(float(np.clip(pred_raw, 0, 100)), 2)
                 # Final calibrated match score
@@ -408,6 +556,15 @@ if analyze_btn:
                 jd_skills = extract_skills(jd_clean)
                 matched_skills = sorted(list(set(res_skills) & set(jd_skills)))
                 missing_skills = sorted(list(set(jd_skills) - set(res_skills)))
+                extra_skills = sorted(list(set(res_skills) - set(jd_skills)))
+                skill_ratio = len(matched_skills) / len(jd_skills) if len(jd_skills) > 0 else 0.0
+                res_tokens = set(resume_clean.split())
+                jd_tokens = set(jd_clean.split())
+                intersection = len(res_tokens & jd_tokens)
+                union = len(res_tokens | jd_tokens) if len(res_tokens | jd_tokens) > 0 else 1
+                jaccard = intersection / union
+                jd_cov = intersection / len(jd_tokens) if len(jd_tokens) > 0 else 0.0
+                len_ratio = min(len(resume_clean), len(jd_clean)) / max(len(resume_clean), len(jd_clean), 1)
 
             # 4. Determine Match Tier & Styling
             if final_score >= 80:
@@ -505,7 +662,41 @@ if analyze_btn:
         st.markdown("---")
 
         # ---------------------------------------------------------------------
-        # 9. PERSONALIZED AI RECOMMENDATIONS
+        # 9. INTERACTIVE GRAPH VISUALIZATIONS & ALIGNMENT ANALYTICS
+        # ---------------------------------------------------------------------
+        st.markdown("### 🕸️ Graph Visualizations & Predictive Analytics")
+        
+        tab_graph1, tab_graph2, tab_graph3 = st.tabs([
+            "🕸️ Bipartite Skill Network Graph", 
+            "🎯 Multivariate Competency Radar", 
+            "📊 NLP Feature Signal Breakdown"
+        ])
+        
+        with tab_graph1:
+            st.markdown("##### 🔗 Candidate vs. Job Requirement Knowledge Graph")
+            st.caption("Visual network mapping candidate skills to job prerequisites. Green indicates verified matches, Red indicates missing job requirements, and Blue indicates candidate strengths.")
+            fig_network = generate_network_graph(matched_skills, missing_skills, extra_skills)
+            st.pyplot(fig_network, use_container_width=True)
+            plt.close(fig_network)
+            
+        with tab_graph2:
+            st.markdown("##### 🧭 5-Dimensional Competency Alignment Radar")
+            st.caption("Multi-axis polar evaluation comparing Cosine Similarity, Skill Ratio, Keyword Coverage, Jaccard Token Overlap, and Document Length Alignment.")
+            fig_radar = generate_radar_chart(cos_score, skill_ratio * 100, jd_cov * 100, jaccard * 100, len_ratio * 100, final_score)
+            st.pyplot(fig_radar, use_container_width=True)
+            plt.close(fig_radar)
+
+        with tab_graph3:
+            st.markdown("##### 📈 Machine Learning Input Signals")
+            st.caption("Alignment percentages for each engineered feature feeding into the Random Forest Regression Model.")
+            fig_bar = generate_feature_bar_chart(cos_score, skill_ratio * 100, jd_cov * 100, jaccard * 100, len_ratio * 100)
+            st.pyplot(fig_bar, use_container_width=True)
+            plt.close(fig_bar)
+
+        st.markdown("---")
+
+        # ---------------------------------------------------------------------
+        # 10. PERSONALIZED AI RECOMMENDATIONS
         # ---------------------------------------------------------------------
         st.markdown("### 💡 Personalized AI Recommendations")
         
